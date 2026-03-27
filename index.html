@@ -1,1 +1,573 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Karl Lynex — The Operating System for AI Workers</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
+    :root {
+      --navy: #07091A;
+      --navy2: #0D1030;
+      --blue: #1A6FFF;
+      --blue-light: #4D9BFF;
+      --blue-glow: rgba(26, 111, 255, 0.18);
+      --white: #F4F7FF;
+      --muted: #8A94B2;
+      --border: rgba(255,255,255,0.07);
+      --font: 'Outfit', sans-serif;
+      --mono: 'JetBrains Mono', monospace;
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      background: var(--navy);
+      color: var(--white);
+      font-family: var(--font);
+      overflow-x: hidden;
+      cursor: none;
+    }
+
+    /* Custom cursor */
+    .cursor {
+      width: 10px; height: 10px;
+      background: var(--blue);
+      border-radius: 50%;
+      position: fixed; pointer-events: none; z-index: 9999;
+      transform: translate(-50%,-50%);
+      transition: transform 0.1s, width 0.2s, height 0.2s, opacity 0.2s;
+    }
+    .cursor-ring {
+      width: 32px; height: 32px;
+      border: 1px solid rgba(26,111,255,0.5);
+      border-radius: 50%;
+      position: fixed; pointer-events: none; z-index: 9998;
+      transform: translate(-50%,-50%);
+      transition: transform 0.18s ease, width 0.2s, height 0.2s;
+    }
+    body:hover .cursor { opacity: 1; }
+
+    /* Grid background */
+    body::before {
+      content: '';
+      position: fixed; inset: 0; z-index: 0;
+      background-image:
+        linear-gradient(var(--border) 1px, transparent 1px),
+        linear-gradient(90deg, var(--border) 1px, transparent 1px);
+      background-size: 60px 60px;
+      pointer-events: none;
+    }
+
+    /* NAV */
+    nav {
+      position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 20px 48px;
+      background: linear-gradient(180deg, rgba(7,9,26,0.95) 0%, transparent 100%);
+      backdrop-filter: blur(10px);
+      border-bottom: 1px solid transparent;
+      transition: border-color 0.3s;
+    }
+    nav.scrolled { border-color: var(--border); background: rgba(7,9,26,0.95); }
+
+    .nav-logo {
+      font-family: var(--mono);
+      font-size: 18px; font-weight: 500;
+      color: var(--white);
+      text-decoration: none;
+      letter-spacing: -0.02em;
+    }
+    .nav-logo span { color: var(--blue); }
+
+    .nav-links { display: flex; gap: 36px; list-style: none; }
+    .nav-links a {
+      color: var(--muted); font-size: 14px; text-decoration: none;
+      font-weight: 500; letter-spacing: 0.02em;
+      transition: color 0.2s;
+    }
+    .nav-links a:hover { color: var(--white); }
+
+    .nav-cta {
+      background: var(--blue);
+      color: #fff; font-family: var(--font);
+      font-size: 14px; font-weight: 600;
+      padding: 10px 24px; border-radius: 6px;
+      text-decoration: none; border: none; cursor: none;
+      transition: background 0.2s, box-shadow 0.2s;
+    }
+    .nav-cta:hover {
+      background: var(--blue-light);
+      box-shadow: 0 0 24px rgba(26,111,255,0.5);
+    }
+
+    /* HERO */
+    #hero {
+      position: relative; z-index: 1;
+      min-height: 100vh;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      text-align: center;
+      padding: 120px 24px 80px;
+      overflow: hidden;
+    }
+
+    /* Blue orb */
+    #hero::after {
+      content: '';
+      position: absolute;
+      width: 600px; height: 600px;
+      background: radial-gradient(circle, rgba(26,111,255,0.2) 0%, transparent 70%);
+      border-radius: 50%;
+      top: 50%; left: 50%;
+      transform: translate(-50%, -55%);
+      pointer-events: none;
+      animation: pulse 6s ease-in-out infinite;
+    }
+    @keyframes pulse {
+      0%,100% { opacity: 0.7; transform: translate(-50%,-55%) scale(1); }
+      50% { opacity: 1; transform: translate(-50%,-55%) scale(1.12); }
+    }
+
+    .hero-badge {
+      display: inline-flex; align-items: center; gap: 8px;
+      background: rgba(26,111,255,0.1);
+      border: 1px solid rgba(26,111,255,0.3);
+      border-radius: 100px;
+      padding: 6px 16px;
+      font-family: var(--mono); font-size: 12px;
+      color: var(--blue-light); letter-spacing: 0.08em;
+      margin-bottom: 32px;
+      opacity: 0; animation: fadeUp 0.6s 0.2s forwards;
+    }
+    .hero-badge::before {
+      content: ''; width: 6px; height: 6px;
+      background: var(--blue); border-radius: 50%;
+      animation: blink 1.5s infinite;
+    }
+    @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.3} }
+
+    .hero-title {
+      font-size: clamp(42px, 7vw, 84px);
+      font-weight: 800; line-height: 1.05;
+      letter-spacing: -0.03em;
+      max-width: 900px;
+      opacity: 0; animation: fadeUp 0.7s 0.4s forwards;
+    }
+    .hero-title .accent { color: var(--blue); }
+    .hero-title .thin { font-weight: 300; color: var(--muted); }
+
+    .hero-sub {
+      font-size: 18px; font-weight: 400;
+      color: var(--muted); max-width: 560px;
+      line-height: 1.7; margin-top: 24px;
+      opacity: 0; animation: fadeUp 0.7s 0.6s forwards;
+    }
+
+    .hero-actions {
+      display: flex; gap: 16px; margin-top: 48px; flex-wrap: wrap; justify-content: center;
+      opacity: 0; animation: fadeUp 0.7s 0.8s forwards;
+    }
+    .btn-primary {
+      background: var(--blue); color: #fff;
+      padding: 14px 32px; border-radius: 8px;
+      font-family: var(--font); font-size: 15px; font-weight: 600;
+      text-decoration: none; transition: all 0.2s; cursor: none;
+    }
+    .btn-primary:hover { background: var(--blue-light); box-shadow: 0 0 32px rgba(26,111,255,0.5); transform: translateY(-2px); }
+    .btn-ghost {
+      background: transparent; color: var(--white);
+      padding: 14px 32px; border-radius: 8px;
+      border: 1px solid var(--border);
+      font-family: var(--font); font-size: 15px; font-weight: 500;
+      text-decoration: none; transition: all 0.2s; cursor: none;
+    }
+    .btn-ghost:hover { border-color: rgba(26,111,255,0.5); background: var(--blue-glow); }
+
+    .hero-stats {
+      display: flex; gap: 48px; margin-top: 80px; flex-wrap: wrap; justify-content: center;
+      opacity: 0; animation: fadeUp 0.7s 1s forwards;
+    }
+    .stat { text-align: center; }
+    .stat-num { font-size: 32px; font-weight: 800; color: var(--white); line-height: 1; }
+    .stat-num span { color: var(--blue); }
+    .stat-label { font-size: 13px; color: var(--muted); margin-top: 6px; letter-spacing: 0.04em; }
+
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(20px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    /* SECTIONS common */
+    section { position: relative; z-index: 1; padding: 100px 48px; }
+    .section-label {
+      font-family: var(--mono); font-size: 11px;
+      color: var(--blue); letter-spacing: 0.15em;
+      text-transform: uppercase; margin-bottom: 16px;
+    }
+    .section-title {
+      font-size: clamp(28px, 4vw, 48px);
+      font-weight: 700; line-height: 1.15; letter-spacing: -0.02em;
+    }
+    .section-sub {
+      color: var(--muted); font-size: 17px; line-height: 1.7;
+      max-width: 560px; margin-top: 16px;
+    }
+
+    /* ABOUT */
+    #about { background: var(--navy2); }
+    .about-inner {
+      max-width: 1100px; margin: 0 auto;
+      display: grid; grid-template-columns: 1fr 1fr; gap: 80px; align-items: center;
+    }
+    .about-visual {
+      position: relative;
+      background: rgba(26,111,255,0.06);
+      border: 1px solid rgba(26,111,255,0.2);
+      border-radius: 16px; padding: 40px;
+      display: flex; flex-direction: column; gap: 16px;
+    }
+    .os-window {
+      background: rgba(7,9,26,0.8); border-radius: 10px;
+      border: 1px solid var(--border); overflow: hidden;
+    }
+    .os-bar {
+      background: rgba(255,255,255,0.04);
+      padding: 10px 16px; display: flex; align-items: center; gap: 8px;
+      border-bottom: 1px solid var(--border);
+    }
+    .dot { width: 10px; height: 10px; border-radius: 50%; }
+    .dot-r { background: #FF5F56; } .dot-y { background: #FFBD2E; } .dot-g { background: #27C93F; }
+    .os-body { padding: 20px 16px; font-family: var(--mono); font-size: 12px; line-height: 1.9; }
+    .line-blue { color: var(--blue-light); }
+    .line-green { color: #4DFFB4; }
+    .line-muted { color: var(--muted); }
+    .blink-cur { display: inline-block; width: 8px; height: 13px; background: var(--blue); vertical-align: middle; animation: blink 1s infinite; }
+
+    /* FEATURES / PRODUCTS */
+    #products { max-width: 1100px; margin: 0 auto; padding-left: 0; padding-right: 0; }
+    #products-wrap { padding: 100px 48px; }
+    .products-header { max-width: 600px; margin-bottom: 64px; }
+    .cards-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 24px;
+    }
+    .card {
+      background: rgba(13,16,48,0.6);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 36px 32px;
+      transition: border-color 0.3s, transform 0.3s, box-shadow 0.3s;
+      position: relative; overflow: hidden;
+    }
+    .card::before {
+      content: '';
+      position: absolute; top: 0; left: 0; right: 0; height: 1px;
+      background: linear-gradient(90deg, transparent, var(--blue), transparent);
+      opacity: 0; transition: opacity 0.3s;
+    }
+    .card:hover { border-color: rgba(26,111,255,0.4); transform: translateY(-4px); box-shadow: 0 20px 60px rgba(0,0,0,0.4), 0 0 40px rgba(26,111,255,0.08); }
+    .card:hover::before { opacity: 1; }
+    .card-icon {
+      width: 48px; height: 48px;
+      background: rgba(26,111,255,0.12);
+      border-radius: 10px; display: flex; align-items: center; justify-content: center;
+      margin-bottom: 24px; font-size: 22px;
+    }
+    .card h3 { font-size: 20px; font-weight: 700; margin-bottom: 12px; letter-spacing: -0.01em; }
+    .card p { color: var(--muted); font-size: 15px; line-height: 1.7; }
+    .card-tag {
+      display: inline-block; margin-top: 20px;
+      font-family: var(--mono); font-size: 11px;
+      color: var(--blue-light); letter-spacing: 0.06em;
+    }
+
+    /* HOW IT WORKS */
+    #how { background: var(--navy2); }
+    .how-inner { max-width: 1100px; margin: 0 auto; }
+    .steps { display: flex; flex-direction: column; gap: 0; margin-top: 60px; }
+    .step {
+      display: grid; grid-template-columns: 80px 1fr;
+      gap: 32px; align-items: start;
+      padding: 36px 0; border-bottom: 1px solid var(--border);
+    }
+    .step:last-child { border-bottom: none; }
+    .step-num {
+      font-family: var(--mono); font-size: 13px;
+      color: var(--blue); padding-top: 6px;
+    }
+    .step-content h4 { font-size: 20px; font-weight: 700; margin-bottom: 8px; }
+    .step-content p { color: var(--muted); font-size: 15px; line-height: 1.7; max-width: 600px; }
+
+    /* CTA */
+    #cta {
+      text-align: center;
+      background: radial-gradient(ellipse 80% 60% at 50% 50%, rgba(26,111,255,0.12) 0%, transparent 70%);
+    }
+    .cta-inner { max-width: 700px; margin: 0 auto; }
+    #cta .section-title { font-size: clamp(32px, 5vw, 58px); }
+
+    /* FOOTER */
+    footer {
+      position: relative; z-index: 1;
+      border-top: 1px solid var(--border);
+      padding: 40px 48px;
+      display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 20px;
+    }
+    .footer-logo { font-family: var(--mono); font-size: 15px; color: var(--muted); }
+    .footer-logo span { color: var(--blue); }
+    .footer-copy { font-size: 13px; color: var(--muted); }
+    .footer-links { display: flex; gap: 24px; }
+    .footer-links a { font-size: 13px; color: var(--muted); text-decoration: none; transition: color 0.2s; }
+    .footer-links a:hover { color: var(--white); }
+
+    /* Scroll reveal */
+    .reveal { opacity: 0; transform: translateY(30px); transition: opacity 0.7s, transform 0.7s; }
+    .reveal.visible { opacity: 1; transform: none; }
+
+    /* Mobile */
+    @media (max-width: 768px) {
+      nav { padding: 16px 20px; }
+      .nav-links { display: none; }
+      section { padding: 72px 20px; }
+      .about-inner { grid-template-columns: 1fr; gap: 40px; }
+      footer { padding: 32px 20px; flex-direction: column; text-align: center; }
+      .hero-stats { gap: 28px; }
+      #products-wrap { padding: 72px 20px; }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="cursor" id="cur"></div>
+  <div class="cursor-ring" id="curRing"></div>
+
+  <!-- NAV -->
+  <nav id="nav">
+    <a href="#" class="nav-logo">karl<span>_</span>lynex</a>
+    <ul class="nav-links">
+      <li><a href="#about">About</a></li>
+      <li><a href="#products-wrap">Products</a></li>
+      <li><a href="#how">How it works</a></li>
+    </ul>
+    <a href="#cta" class="nav-cta">Get Early Access</a>
+  </nav>
+
+  <!-- HERO -->
+  <section id="hero">
+    <div class="hero-badge">v1.0 — Now in Early Access</div>
+    <h1 class="hero-title">
+      The <span class="accent">Operating System</span><br/>
+      <span class="thin">for</span> AI Workers
+    </h1>
+    <p class="hero-sub">
+      Karl Lynex builds the infrastructure layer where AI agents live, collaborate, and execute — giving your team an intelligent workforce that never sleeps.
+    </p>
+    <div class="hero-actions">
+      <a href="#cta" class="btn-primary">Request Access</a>
+      <a href="#about" class="btn-ghost">Learn More →</a>
+    </div>
+    <div class="hero-stats">
+      <div class="stat">
+        <div class="stat-num">10<span>x</span></div>
+        <div class="stat-label">Faster Execution</div>
+      </div>
+      <div class="stat">
+        <div class="stat-num">∞<span></span></div>
+        <div class="stat-label">Scalable Workers</div>
+      </div>
+      <div class="stat">
+        <div class="stat-num">01<span>/</span>OS</div>
+        <div class="stat-label">Unified Platform</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ABOUT -->
+  <section id="about">
+    <div class="about-inner">
+      <div class="reveal">
+        <div class="section-label">// about</div>
+        <h2 class="section-title">Built for the<br/>AI-native era</h2>
+        <p class="section-sub">
+          Karl Lynex Technologies is building the foundational OS layer that lets businesses deploy, manage, and scale AI workers — autonomous agents that handle real work across your organization.
+        </p>
+        <p class="section-sub" style="margin-top:16px">
+          We believe the future isn't humans using AI tools — it's AI workers running on an operating system designed for intelligence.
+        </p>
+      </div>
+      <div class="about-visual reveal">
+        <div class="os-window">
+          <div class="os-bar">
+            <div class="dot dot-r"></div>
+            <div class="dot dot-y"></div>
+            <div class="dot dot-g"></div>
+          </div>
+          <div class="os-body">
+            <div class="line-muted"># Karl Lynex OS — v1.0</div>
+            <div class="line-blue">$ klx workers --list</div>
+            <div class="line-green">✓ analyst_01 &nbsp;&nbsp;[running]</div>
+            <div class="line-green">✓ dev_agent_02 [running]</div>
+            <div class="line-green">✓ ops_03 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;[idle]</div>
+            <div class="line-blue">$ klx deploy --agent research</div>
+            <div class="line-green">✓ Spawning research_04...</div>
+            <div class="line-green">✓ Connected to KL kernel</div>
+            <div class="line-blue">$ <span class="blink-cur"></span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- PRODUCTS -->
+  <div id="products-wrap">
+    <div style="max-width:1100px;margin:0 auto">
+      <div class="products-header reveal">
+        <div class="section-label">// products</div>
+        <h2 class="section-title">Everything your AI<br/>workforce needs</h2>
+        <p class="section-sub">A complete platform — from worker deployment to task orchestration to real-time monitoring.</p>
+      </div>
+      <div class="cards-grid">
+        <div class="card reveal">
+          <div class="card-icon">⚙️</div>
+          <h3>KL Kernel</h3>
+          <p>The core runtime that manages AI worker processes, memory allocation, and inter-agent communication at the OS level.</p>
+          <span class="card-tag">// CORE RUNTIME</span>
+        </div>
+        <div class="card reveal">
+          <div class="card-icon">🤖</div>
+          <h3>AI Workers</h3>
+          <p>Pre-built and customizable autonomous agents that handle research, development, operations, customer support, and more.</p>
+          <span class="card-tag">// AGENT LAYER</span>
+        </div>
+        <div class="card reveal">
+          <div class="card-icon">🔗</div>
+          <h3>Task Orchestrator</h3>
+          <p>Intelligent task routing and workflow automation — assign complex multi-step work across your AI worker fleet seamlessly.</p>
+          <span class="card-tag">// ORCHESTRATION</span>
+        </div>
+        <div class="card reveal">
+          <div class="card-icon">📊</div>
+          <h3>KL Dashboard</h3>
+          <p>A real-time command center to monitor, manage, and scale your AI workers with full visibility into every active process.</p>
+          <span class="card-tag">// MONITORING</span>
+        </div>
+        <div class="card reveal">
+          <div class="card-icon">🔒</div>
+          <h3>Access Control</h3>
+          <p>Enterprise-grade permissions and audit logs, ensuring each AI worker operates within secure, defined boundaries.</p>
+          <span class="card-tag">// SECURITY</span>
+        </div>
+        <div class="card reveal">
+          <div class="card-icon">🚀</div>
+          <h3>KL API</h3>
+          <p>Deploy and interact with AI workers programmatically. Integrate Karl Lynex into any existing stack with a clean REST API.</p>
+          <span class="card-tag">// DEVELOPER SDK</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- HOW IT WORKS -->
+  <section id="how">
+    <div class="how-inner">
+      <div class="reveal">
+        <div class="section-label">// how it works</div>
+        <h2 class="section-title">From zero to AI workforce<br/>in minutes</h2>
+      </div>
+      <div class="steps">
+        <div class="step reveal">
+          <div class="step-num">01 —</div>
+          <div class="step-content">
+            <h4>Connect your workspace</h4>
+            <p>Link Karl Lynex to your existing tools — Slack, Notion, GitHub, email, databases — so your AI workers have the context they need to get things done.</p>
+          </div>
+        </div>
+        <div class="step reveal">
+          <div class="step-num">02 —</div>
+          <div class="step-content">
+            <h4>Deploy your first AI worker</h4>
+            <p>Choose from pre-built worker templates or define a custom agent with specific skills, permissions, and goals. Deployment takes under 60 seconds.</p>
+          </div>
+        </div>
+        <div class="step reveal">
+          <div class="step-num">03 —</div>
+          <div class="step-content">
+            <h4>Assign work and monitor</h4>
+            <p>Delegate tasks naturally — by message, API call, or automated trigger. Your KL Dashboard gives you live visibility into every worker and every action.</p>
+          </div>
+        </div>
+        <div class="step reveal">
+          <div class="step-num">04 —</div>
+          <div class="step-content">
+            <h4>Scale your workforce</h4>
+            <p>Add more workers, expand capabilities, and orchestrate complex cross-agent workflows as your team grows — without adding headcount.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- CTA -->
+  <section id="cta">
+    <div class="cta-inner reveal">
+      <div class="section-label">// get started</div>
+      <h2 class="section-title">Your AI workforce<br/>is ready to deploy</h2>
+      <p class="section-sub" style="margin:20px auto 40px">
+        Join the early access program and be among the first teams running on Karl Lynex OS.
+      </p>
+      <div style="display:flex;gap:16px;justify-content:center;flex-wrap:wrap">
+        <a href="mailto:hello@karllynex.com" class="btn-primary">Request Early Access</a>
+        <a href="#about" class="btn-ghost">Learn More</a>
+      </div>
+    </div>
+  </section>
+
+  <!-- FOOTER -->
+  <footer>
+    <div class="footer-logo">karl<span>_</span>lynex technologies</div>
+    <div class="footer-copy">© 2025 Karl Lynex. All rights reserved.</div>
+    <div class="footer-links">
+      <a href="#">Twitter</a>
+      <a href="#">LinkedIn</a>
+      <a href="mailto:hello@karllynex.com">Contact</a>
+    </div>
+  </footer>
+
+  <script>
+    // Custom cursor
+    const cur = document.getElementById('cur');
+    const ring = document.getElementById('curRing');
+    let mx=0,my=0,rx=0,ry=0;
+    document.addEventListener('mousemove', e => { mx=e.clientX; my=e.clientY; cur.style.left=mx+'px'; cur.style.top=my+'px'; });
+    (function animRing(){
+      rx+=(mx-rx)*0.12; ry+=(my-ry)*0.12;
+      ring.style.left=rx+'px'; ring.style.top=ry+'px';
+      requestAnimationFrame(animRing);
+    })();
+    document.querySelectorAll('a,button').forEach(el=>{
+      el.addEventListener('mouseenter',()=>{ cur.style.width='6px'; cur.style.height='6px'; ring.style.width='48px'; ring.style.height='48px'; });
+      el.addEventListener('mouseleave',()=>{ cur.style.width='10px'; cur.style.height='10px'; ring.style.width='32px'; ring.style.height='32px'; });
+    });
+
+    // Nav scroll
+    const nav = document.getElementById('nav');
+    window.addEventListener('scroll', () => { nav.classList.toggle('scrolled', window.scrollY > 40); });
+
+    // Scroll reveal
+    const reveals = document.querySelectorAll('.reveal');
+    const obs = new IntersectionObserver(entries => {
+      entries.forEach((e,i) => {
+        if(e.isIntersecting){
+          setTimeout(()=>e.target.classList.add('visible'), i*80);
+        }
+      });
+    }, { threshold: 0.1, rootMargin: '0px 0px -40px 0px' });
+    reveals.forEach(el => obs.observe(el));
+  </script>
+</body>
+  </html>
